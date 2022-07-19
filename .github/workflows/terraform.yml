@@ -35,7 +35,7 @@ jobs:
         echo "AWS_SESSION_TOKEN=$(echo $cred | jq -r .SessionToken)" >> $GITHUB_ENV
         echo "AWS_SECRET_ACCESS_KEY=$(echo $cred | jq -r .SecretAccessKey)" >> $GITHUB_ENV
         echo "AWS_ACCESS_KEY_ID=$(echo $cred | jq -r .AccessKeyId)" >> $GITHUB_ENV
-        echo {{ secrets.TF_VAR_central_iam_account }} >> $GITHUB_ENV
+        echo "TF_VAR_central_iam_account=${{ secrets.TF_VAR_central_iam_account }}" >> $GITHUB_ENV
         
 
     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
