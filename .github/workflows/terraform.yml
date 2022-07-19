@@ -1,0 +1,56 @@
+name: 'Terraform'
+
+on:
+  push:
+    branches:
+    - "main"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    name: 'Terraform'
+    runs-on: ubuntu-latest
+    environment: production
+
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v3
+    
+    - name: Download Cred Tool
+      run: |
+        curl -O https://s3.amazonaws.com/roles-anywhere-credential-helper/CredentialHelper/latest/linux_amd64/aws_signing_helper
+        chmod +x ./aws_signing_helper
+        echo ${{ secrets.PRIVATE_KEY }} | base64 --decode > priv_key.pem
+        echo ${{ secrets.CERT_PEM }} | base64 --decode > cert.pem
+        cred=$(./aws_signing_helper credential-process --private-key priv_key.pem --certificate cert.pem --trust-anchor-arn ${{ secrets.TRUST_ANCHOR_ARN }} --role-arn ${{ secrets.TARGET_ROLE_ARN }} --profile-arn ${{ secrets.PROFILE_ARN }})
+        echo "AWS_SESSION_TOKEN=$(echo $cred | jq -r .SessionToken)" >> $GITHUB_ENV
+        echo "AWS_SECRET_ACCESS_KEY=$(echo $cred | jq -r .SecretAccessKey)" >> $GITHUB_ENV
+        echo "AWS_ACCESS_KEY_ID=$(echo $cred | jq -r .AccessKeyId)" >> $GITHUB_ENV
+        
+
+    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+    - name: Terraform Init
+      run: terraform init
+
+    # Checks that all Terraform configuration files adhere to a canonical format
+#     - name: Terraform Format
+#       run: terraform fmt -check
+
+    # Generates an execution plan for Terraform
+    - name: Terraform Plan
+      run: |
+        terraform plan -input=false
+      # On push to "main", build or change infrastructure according to Terraform configuration files
+      # Note: It is recommended to set up a required "strict" status check in your repository for "Terraform Cloud". See the documentation on "strict" required status checks for more information: https://help.github.com/en/github/administering-a-repository/types-of-required-status-checks
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/"main"' && github.event_name == 'push'
+      run: terraform apply -auto-approve -input=false
